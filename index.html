@@ -11,25 +11,39 @@ body{margin:0;background:#10151e;color:white;font-family:Arial,sans-serif;text-a
 h1{font-size:25px;margin:15px 0 8px;color:#ffd54a}
 #info{display:flex;justify-content:center;gap:13px;flex-wrap:wrap;margin:10px;font-size:14px}
 #game{display:block;width:min(96vw,480px);height:auto;margin:auto;background:#252b32;border:3px solid #596273;border-radius:9px}
-#controls{width:min(96vw,480px);margin:12px auto;display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
-button{border:0;border-radius:10px;padding:14px 4px;background:#303e53;color:white;font-weight:bold;font-size:14px;touch-action:none}
-button:active{background:#e6a92b;color:#111}
-#actions{width:min(96vw,480px);margin:8px auto;display:grid;grid-template-columns:1fr 1fr;gap:8px}
-#actions button{padding:15px;font-size:15px}
+#controls,#actions{width:min(96vw,480px);margin:10px auto;display:grid;gap:6px}
+#controls{grid-template-columns:repeat(5,1fr)}
+#actions{grid-template-columns:1fr 1fr}
+button,select{border:0;border-radius:10px;padding:13px 4px;background:#303e53;color:white;font-weight:bold;font-size:13px;touch-action:none}
+button:active{filter:brightness(1.4)}
+#start{background:#e4ad28;color:#151515}
 #shock{background:#167cbd}
 #dash{background:#bd542b}
-#start{background:#e4ad28;color:#151515}
+#lifeChoice{margin:10px auto;display:flex;align-items:center;justify-content:center;gap:10px}
+select{background:#303e53;padding:10px 16px;font-size:15px}
 #help{font-size:12px;color:#c5ccd6;margin:12px auto 22px;line-height:1.7}
 </style>
 </head>
 <body>
+
 <h1>🏁 NO STRESS RACING</h1>
+
 <div id="info">
  <span>🏆 Score: <b id="score">0</b></span>
  <span>🪙 Coins: <b id="coins">0</b></span>
  <span>🚦 Stage: <b id="stage">1</b></span>
  <span>❤️ Lives: <b id="lives">3</b></span>
 </div>
+
+<div id="lifeChoice">
+ <label for="lifeSelect">❤️ SELECT LIVES</label>
+ <select id="lifeSelect">
+  <option value="3" selected>3 Lives</option>
+  <option value="5">5 Lives</option>
+  <option value="10">10 Lives</option>
+ </select>
+</div>
+
 <canvas id="game" width="480" height="720"></canvas>
 
 <div id="controls">
@@ -39,14 +53,16 @@ button:active{background:#e6a92b;color:#111}
  <button data-key="ArrowRight">RIGHT ➡</button>
  <button id="start">START</button>
 </div>
+
 <div id="actions">
  <button id="shock">💥 SHOCKWAVE<br>5 COINS</button>
  <button id="dash">🔥 DASH<br>10 COINS</button>
 </div>
+
 <div id="help">
  Keyboard: ← → Move · ↑ Accelerate · ↓ Brake<br>
- Collect coins, avoid traffic and survive to reach higher stages!<br>
- Shockwave pushes nearby cars away. Dash gives you a powerful burst.
+ Collect coins, avoid traffic and reach higher stages!<br>
+ Shockwave pushes nearby cars away. Dash destroys cars only on collision.
 </div>
 
 <script>
@@ -54,18 +70,26 @@ const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 const $=id=>document.getElementById(id);
 
-let keys={},player,traffic,coinsOnRoad,particles;
-let score=0,coins=0,stage=1,lives=3,distance=0;
-let speed=4,roadOffset=0,spawnTimer=0,coinTimer=0;
-let running=false,gameOver=false,dashTime=0,shockTime=0;
+let keys={};
+let player,traffic,coinsOnRoad,particles;
+let score=0,coins=0,stage=1,lives=3;
+let distance=0,speed=4,roadOffset=0;
+let spawnTimer=0,coinTimer=0;
+let running=false,gameOver=false;
+let dashTime=0,shockTime=0,invincible=0;
 let last=0;
 
 function reset(){
  player={x:218,y:570,w:44,h:76};
- traffic=[];coinsOnRoad=[];particles=[];
- score=0;coins=0;stage=1;lives=3;distance=0;
- speed=4;roadOffset=0;spawnTimer=0;coinTimer=0;
- dashTime=0;shockTime=0;gameOver=false;running=true;
+ traffic=[];
+ coinsOnRoad=[];
+ particles=[];
+ score=0;coins=0;stage=1;
+ lives=Number($("lifeSelect").value);
+ distance=0;speed=4;roadOffset=0;
+ spawnTimer=0;coinTimer=0;
+ dashTime=0;shockTime=0;invincible=0;
+ gameOver=false;running=true;
  updateInfo();
 }
 
@@ -77,33 +101,50 @@ function updateInfo(){
 }
 
 function road(){
- ctx.fillStyle="#287443";ctx.fillRect(0,0,480,720);
- ctx.fillStyle="#343a42";ctx.fillRect(55,0,370,720);
+ ctx.fillStyle="#287443";
+ ctx.fillRect(0,0,480,720);
+
+ ctx.fillStyle="#343a42";
+ ctx.fillRect(55,0,370,720);
+
  ctx.fillStyle="#f4f0d0";
- ctx.fillRect(67,0,5,720);ctx.fillRect(408,0,5,720);
- ctx.fillStyle="#e8d76a";
- for(let y=-50;y<750;y+=110){
-  let yy=(y+roadOffset)%110;
-  ctx.fillRect(178,yy,7,55);
-  ctx.fillRect(295,yy,7,55);
+ ctx.fillRect(67,0,5,720);
+ ctx.fillRect(408,0,5,720);
+
+ // Stable, continuously repeating lane markings
+ ctx.fillStyle="#f2dc75";
+ for(let y=-110;y<830;y+=110){
+  let yy=(y+roadOffset)%720;
+  if(yy<0)yy+=720;
+  ctx.fillRect(190,yy,7,55);
+  ctx.fillRect(283,yy,7,55);
  }
 }
 
 function drawCar(x,y,color,playerCar=false){
  ctx.fillStyle="rgba(0,0,0,.3)";
  ctx.fillRect(x+4,y+7,40,68);
+
  ctx.fillStyle=color;
  ctx.fillRect(x+5,y+7,34,62);
+
  ctx.fillStyle="#172331";
  ctx.fillRect(x+9,y+19,26,18);
  ctx.fillRect(x+9,y+45,26,13);
+
  ctx.fillStyle="#b9e7f5";
  ctx.fillRect(x+11,y+21,22,13);
+
  ctx.fillStyle="#ffe99a";
- ctx.fillRect(x+7,y+3,9,5);ctx.fillRect(x+28,y+3,9,5);
+ ctx.fillRect(x+7,y+3,9,5);
+ ctx.fillRect(x+28,y+3,9,5);
+
  ctx.fillStyle="#171717";
- ctx.fillRect(x,y+17,5,17);ctx.fillRect(x+39,y+17,5,17);
- ctx.fillRect(x,y+49,5,17);ctx.fillRect(x+39,y+49,5,17);
+ ctx.fillRect(x,y+17,5,17);
+ ctx.fillRect(x+39,y+17,5,17);
+ ctx.fillRect(x,y+49,5,17);
+ ctx.fillRect(x+39,y+49,5,17);
+
  if(playerCar){
   ctx.fillStyle="#fff";
   ctx.fillRect(x+13,y+39,18,3);
@@ -111,38 +152,67 @@ function drawCar(x,y,color,playerCar=false){
 }
 
 function drawCoin(c){
- ctx.beginPath();ctx.arc(c.x,c.y,12,0,Math.PI*2);
- ctx.fillStyle="#ffc928";ctx.fill();
- ctx.strokeStyle="#fff0a0";ctx.lineWidth=3;ctx.stroke();
- ctx.fillStyle="#9b6410";ctx.font="bold 15px Arial";
- ctx.textAlign="center";ctx.fillText("$",c.x,c.y+5);
+ ctx.beginPath();
+ ctx.arc(c.x,c.y,12,0,Math.PI*2);
+ ctx.fillStyle="#ffc928";
+ ctx.fill();
+ ctx.strokeStyle="#fff0a0";
+ ctx.lineWidth=3;
+ ctx.stroke();
+
+ ctx.fillStyle="#9b6410";
+ ctx.font="bold 15px Arial";
+ ctx.textAlign="center";
+ ctx.fillText("$",c.x,c.y+5);
 }
 
 function spawnTraffic(){
- let lanes=[105,155,215,275,335];
+ let lanes=[105,215,325];
  let lane=lanes[Math.floor(Math.random()*lanes.length)];
- traffic.push({x:lane,y:-90,w:44,h:76,color:["#e84b4b","#458de0","#d4a52e","#a45bd1"][Math.floor(Math.random()*4)],v:1+Math.random()*1.5});
+
+ traffic.push({
+  x:lane,
+  y:-90,
+  w:44,
+  h:76,
+  color:["#e84b4b","#458de0","#d4a52e","#a45bd1"][Math.floor(Math.random()*4)],
+  v:1+Math.random()*1.5
+ });
 }
 
 function spawnCoin(){
- let lanes=[105,155,215,275,335];
- coinsOnRoad.push({x:lanes[Math.floor(Math.random()*lanes.length)]+22,y:-25});
+ let lanes=[105,215,325];
+ coinsOnRoad.push({
+  x:lanes[Math.floor(Math.random()*lanes.length)]+22,
+  y:-25
+ });
 }
 
 function hit(a,b){
- return a.x<b.x+b.w && a.x+a.w>b.x &&
-        a.y<b.y+b.h && a.y+a.h>b.y;
+ return a.x<b.x+b.w &&
+        a.x+a.w>b.x &&
+        a.y<b.y+b.h &&
+        a.y+a.h>b.y;
 }
 
 function burst(x,y,color){
  for(let i=0;i<18;i++){
-  particles.push({x,y,vx:(Math.random()-.5)*8,vy:(Math.random()-.5)*8,life:30,color});
+  particles.push({
+   x,y,
+   vx:(Math.random()-.5)*8,
+   vy:(Math.random()-.5)*8,
+   life:30,
+   color
+  });
  }
 }
 
 function shockwave(){
  if(!running||coins<5)return;
- coins-=5;shockTime=35;
+
+ coins-=5;
+ shockTime=35;
+
  traffic.forEach(t=>{
   if(Math.abs(t.y-player.y)<260){
    burst(t.x+22,t.y+35,"#4bdcff");
@@ -150,51 +220,68 @@ function shockwave(){
    score+=30;
   }
  });
+
  updateInfo();
 }
 
 function dash(){
- if(!running||coins<10)return;
- coins-=10;dashTime=120;
+ if(!running||coins<10||dashTime>0)return;
+
+ coins-=10;
+ dashTime=120;
  burst(player.x+22,player.y+30,"#ff9d32");
  updateInfo();
 }
 
-function movePlayer(){
+function movePlayer(factor){
  let accel=keys.ArrowUp?0.11:0;
  let brake=keys.ArrowDown?0.13:0;
+
  let target=4+stage*.45+accel*18-brake*12;
- speed+=(target-speed)*.045;
+ speed+=(target-speed)*.045*factor;
  speed=Math.max(2.2,Math.min(11,speed));
- let move=keys.ArrowLeft?-5:keys.ArrowRight?5:0;
- player.x+=move;
+
+ let move=0;
+ if(keys.ArrowLeft)move-=5;
+ if(keys.ArrowRight)move+=5;
+
+ player.x+=move*factor;
  player.x=Math.max(76,Math.min(360,player.x));
 }
 
 function update(dt){
  if(!running)return;
+
  let factor=dt/16.67;
- movePlayer();
+
+ movePlayer(factor);
+
  let actualSpeed=speed+(dashTime>0?5:0);
- if(dashTime>0)dashTime-=factor;
- if(shockTime>0)shockTime-=factor;
+
+ if(dashTime>0)dashTime=Math.max(0,dashTime-factor);
+ if(shockTime>0)shockTime=Math.max(0,shockTime-factor);
+ if(invincible>0)invincible=Math.max(0,invincible-factor);
 
  distance+=actualSpeed*factor;
  roadOffset=(roadOffset+actualSpeed*factor)%110;
  score+=actualSpeed*.08*factor;
 
  let newStage=Math.floor(distance/1400)+1;
+
  if(newStage>stage){
   stage=newStage;
   coins+=5;
   burst(240,150,"#ffe16a");
  }
+
  spawnTimer-=factor;
  coinTimer-=factor;
+
  if(spawnTimer<=0){
   spawnTraffic();
   spawnTimer=Math.max(24,75-stage*4);
  }
+
  if(coinTimer<=0){
   spawnCoin();
   coinTimer=65;
@@ -202,92 +289,199 @@ function update(dt){
 
  traffic.forEach(t=>{
   t.y+=(actualSpeed*.65+t.v+stage*.25)*factor;
-  if(dashTime>0 && t.y>player.y-100 && t.y<player.y+100){
-   t.y=800;score+=40;burst(t.x+22,t.y,"#ff9d32");
-  }
-  if(hit({x:player.x,y:player.y,w:44,h:76},{x:t.x,y:t.y,w:44,h:76})){
-   t.y=900;
-   if(dashTime<=0){
-    lives--;burst(player.x+22,player.y+35,"#ff4949");
-    if(lives<=0){running=false;gameOver=true;}
-   }else score+=50;
+
+  let playerBox={
+   x:player.x+5,
+   y:player.y+7,
+   w:34,
+   h:62
+  };
+
+  let trafficBox={
+   x:t.x+5,
+   y:t.y+7,
+   w:34,
+   h:62
+  };
+
+  if(hit(playerBox,trafficBox)){
+   if(dashTime>0){
+    // Dash destroys only on actual collision
+    burst(t.x+22,t.y+35,"#ff9d32");
+    t.y=900;
+    score+=50;
+   }else if(invincible<=0){
+    burst(player.x+22,player.y+35,"#ff4949");
+    t.y=900;
+    lives--;
+    invincible=65;
+
+    if(lives<=0){
+     lives=0;
+     running=false;
+     gameOver=true;
+    }
+   }
   }
  });
+
  traffic=traffic.filter(t=>t.y<800);
 
  coinsOnRoad.forEach(c=>{
   c.y+=actualSpeed*factor;
+
   if(Math.hypot(c.x-(player.x+22),c.y-(player.y+38))<35){
-   c.y=900;coins++;score+=20;
+   c.y=900;
+   coins++;
+   score+=20;
    burst(c.x,c.y,"#ffda42");
   }
  });
+
  coinsOnRoad=coinsOnRoad.filter(c=>c.y<800);
 
  particles.forEach(p=>{
-  p.x+=p.vx*factor;p.y+=p.vy*factor;p.life-=factor;
+  p.x+=p.vx*factor;
+  p.y+=p.vy*factor;
+  p.life-=factor;
  });
+
  particles=particles.filter(p=>p.life>0);
+
  updateInfo();
 }
 
 function draw(){
  road();
+
  coinsOnRoad.forEach(drawCoin);
  traffic.forEach(t=>drawCar(t.x,t.y,t.color));
+
  if(running){
   if(dashTime>0){
-   ctx.fillStyle="rgba(255,130,30,.16)";
+   ctx.fillStyle="rgba(255,130,30,.12)";
    ctx.fillRect(0,0,480,720);
   }
+
   if(shockTime>0){
-   ctx.beginPath();ctx.arc(player.x+22,player.y+38,160*(1-shockTime/45),0,Math.PI*2);
-   ctx.strokeStyle="#48dfff";ctx.lineWidth=9;ctx.stroke();
+   ctx.beginPath();
+   ctx.arc(
+    player.x+22,
+    player.y+38,
+    160*(1-shockTime/45),
+    0,
+    Math.PI*2
+   );
+   ctx.strokeStyle="#48dfff";
+   ctx.lineWidth=9;
+   ctx.stroke();
   }
-  drawCar(player.x,player.y,dashTime>0?"#ff8b24":"#35c9ef",true);
+
+  // Player flashes briefly after a collision
+  if(invincible<=0||Math.floor(invincible/5)%2===0){
+   drawCar(
+    player.x,
+    player.y,
+    dashTime>0?"#ff8b24":"#35c9ef",
+    true
+   );
+  }
+
+  // Small dash countdown above the player
+  if(dashTime>0){
+   let seconds=(dashTime/60).toFixed(1);
+   ctx.fillStyle="rgba(0,0,0,.75)";
+   ctx.fillRect(player.x-3,player.y-32,50,23);
+   ctx.fillStyle="#ffbd56";
+   ctx.font="bold 16px Arial";
+   ctx.textAlign="center";
+   ctx.fillText("🔥 "+seconds+"s",player.x+22,player.y-15);
+  }
+
  }else{
-  ctx.fillStyle="rgba(0,0,0,.72)";ctx.fillRect(0,0,480,720);
+  ctx.fillStyle="rgba(0,0,0,.76)";
+  ctx.fillRect(0,0,480,720);
+
   ctx.textAlign="center";
-  ctx.fillStyle="#ffd54a";ctx.font="bold 36px Arial";
-  ctx.fillText(gameOver?"GAME OVER":"NO STRESS RACING",240,290);
-  ctx.fillStyle="white";ctx.font="20px Arial";
-  ctx.fillText(gameOver?"Final Score: "+Math.floor(score):"Press START to play",240,340);
-  ctx.font="16px Arial";
-  ctx.fillText("Stage "+stage+"  •  Coins "+coins,240,380);
+  ctx.fillStyle="#ffd54a";
+  ctx.font="bold 36px Arial";
+
+  if(gameOver){
+   ctx.fillText("GAME OVER",240,290);
+   ctx.fillStyle="white";
+   ctx.font="20px Arial";
+   ctx.fillText("Final Score: "+Math.floor(score),240,340);
+   ctx.fillText("Stage "+stage+"  •  Coins "+coins,240,380);
+   ctx.font="16px Arial";
+   ctx.fillText("Press START to play again",240,430);
+  }else{
+   ctx.fillText("NO STRESS RACING",240,290);
+   ctx.fillStyle="white";
+   ctx.font="20px Arial";
+   ctx.fillText("SELECT LIVES & PRESS START",240,350);
+   ctx.font="18px Arial";
+   ctx.fillText("3  /  5  /  10 Lives",240,390);
+  }
  }
+
  particles.forEach(p=>{
   ctx.globalAlpha=Math.max(0,p.life/30);
-  ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,6,6);
+  ctx.fillStyle=p.color;
+  ctx.fillRect(p.x,p.y,6,6);
   ctx.globalAlpha=1;
  });
 }
 
 function loop(time){
- let dt=Math.min(40,time-last||16.67);last=time;
- update(dt);draw();
+ let dt=Math.min(40,time-last||16.67);
+ last=time;
+
+ update(dt);
+ draw();
+
  requestAnimationFrame(loop);
 }
 
 document.addEventListener("keydown",e=>{
- if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," "].includes(e.key))e.preventDefault();
+ if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," "].includes(e.key)){
+  e.preventDefault();
+ }
  keys[e.key]=true;
- if(e.repeat)return;
 });
-document.addEventListener("keyup",e=>keys[e.key]=false);
-window.addEventListener("blur",()=>keys={});
+
+document.addEventListener("keyup",e=>{
+ keys[e.key]=false;
+});
+
+window.addEventListener("blur",()=>{
+ keys={};
+});
 
 document.querySelectorAll("[data-key]").forEach(btn=>{
  const key=btn.dataset.key;
- btn.addEventListener("pointerdown",e=>{e.preventDefault();keys[key]=true;});
- ["pointerup","pointerleave","pointercancel"].forEach(ev=>
-  btn.addEventListener(ev,()=>keys[key]=false));
+
+ btn.addEventListener("pointerdown",e=>{
+  e.preventDefault();
+  keys[key]=true;
+ });
+
+ ["pointerup","pointerleave","pointercancel"].forEach(ev=>{
+  btn.addEventListener(ev,()=>{
+   keys[key]=false;
+  });
+ });
 });
+
 $("start").addEventListener("click",reset);
 $("shock").addEventListener("click",shockwave);
 $("dash").addEventListener("click",dash);
 
-reset();
-running=false;
+// Initial screen: 3 lives selected by default
+player={x:218,y:570,w:44,h:76};
+traffic=[];
+coinsOnRoad=[];
+particles=[];
+updateInfo();
 requestAnimationFrame(loop);
 </script>
 </body>
