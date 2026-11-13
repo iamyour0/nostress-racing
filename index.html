@@ -3,254 +3,292 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NO STRESS RACING</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#101827;color:#fff;font-family:Arial,sans-serif;text-align:center;padding:12px}
-h1{color:#8ee8ff;font-size:clamp(23px,5vw,34px);margin:8px}
-.sub{color:#aabbd0;font-size:13px;margin-bottom:12px}
-.game{max-width:650px;margin:auto}
-.stats{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:10px}
-.stat{background:#202e45;border:1px solid #3a506d;border-radius:10px;padding:8px 14px;min-width:85px}
-.stat small{display:block;color:#a9bed3;font-size:11px}
-.stat b{font-size:18px}
-canvas{width:100%;height:auto;display:block;border:2px solid #405775;border-radius:13px;background:#26384a;touch-action:none}
-.controls{display:flex;justify-content:center;gap:12px;margin:12px}
-button,select{border:0;border-radius:10px;padding:12px 17px;font-weight:bold;color:white;background:#304967;font-size:15px}
-button:active{filter:brightness(1.4);transform:scale(.97)}
-.primary{background:#12a9bb;color:#071c25}
-#nitro{background:#bd5bfa}
-.help{font-size:12px;color:#aabbd0;line-height:1.8}
-.msg{min-height:24px;color:#8ee8ff;font-weight:bold;margin:7px}
-@media(max-width:450px){body{padding:7px 5px}.stat{min-width:70px;padding:7px}.controls button{padding:13px 19px}}
+body{margin:0;background:#10151e;color:white;font-family:Arial,sans-serif;text-align:center}
+h1{font-size:25px;margin:15px 0 8px;color:#ffd54a}
+#info{display:flex;justify-content:center;gap:13px;flex-wrap:wrap;margin:10px;font-size:14px}
+#game{display:block;width:min(96vw,480px);height:auto;margin:auto;background:#252b32;border:3px solid #596273;border-radius:9px}
+#controls{width:min(96vw,480px);margin:12px auto;display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+button{border:0;border-radius:10px;padding:14px 4px;background:#303e53;color:white;font-weight:bold;font-size:14px;touch-action:none}
+button:active{background:#e6a92b;color:#111}
+#actions{width:min(96vw,480px);margin:8px auto;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#actions button{padding:15px;font-size:15px}
+#shock{background:#167cbd}
+#dash{background:#bd542b}
+#start{background:#e4ad28;color:#151515}
+#help{font-size:12px;color:#c5ccd6;margin:12px auto 22px;line-height:1.7}
 </style>
 </head>
 <body>
-<div class="game">
 <h1>🏁 NO STRESS RACING</h1>
-<div class="sub">Drive freely. Enjoy the ride!</div>
-<div class="stats">
- <div class="stat"><small>SCORE</small><b id="score">0</b></div>
- <div class="stat"><small>BEST</small><b id="best">0</b></div>
- <div class="stat"><small>STAGE</small><b id="stage">1</b></div>
- <div class="stat"><small>COINS</small><b id="coins">0</b></div>
-</div>
-<div class="controls">
- <select id="car">
-  <option value="#48d9ff">Blue Car</option>
-  <option value="#ff596f">Red Car</option>
-  <option value="#ffe16b">Yellow Car</option>
-  <option value="#9cff8d">Green Car</option>
-  <option value="#d6a0ff">Purple Car</option>
- </select>
- <button class="primary" id="start">▶ START</button>
- <button id="pause">Ⅱ PAUSE</button>
+<div id="info">
+ <span>🏆 Score: <b id="score">0</b></span>
+ <span>🪙 Coins: <b id="coins">0</b></span>
+ <span>🚦 Stage: <b id="stage">1</b></span>
+ <span>❤️ Lives: <b id="lives">3</b></span>
 </div>
 <canvas id="game" width="480" height="720"></canvas>
-<div class="msg" id="msg">Press START to begin!</div>
-<div class="controls">
- <button id="left">◀ LEFT</button>
- <button id="nitro">⚡ NITRO</button>
- <button id="right">RIGHT ▶</button>
-</div>
-<div class="help">
- PC: ← → or A / D to steer · SPACE for Nitro<br>
- Mobile: Use the buttons or drag your car<br>
- Avoid traffic and collect coins!
-</div>
-</div>
-<script>
-(()=>{
-const c=document.getElementById("game"),ctx=c.getContext("2d");
-const $=id=>document.getElementById(id);
-const W=480,H=720;
-let running=false,paused=false,over=false;
-let score=0,coins=0,stage=1,best=0;
-let speed=4,roadOffset=0,traffic=[],items=[];
-let nitro=100,nitroOn=false;
-let color=$("car").value;
-let car={x:240,y:590,w:48,h:82};
-let keys={},last=0,spawn=0,coinSpawn=0;
-const lanes=[130,240,350];
-try{best=Number(localStorage.getItem("nsr-best"))||0}catch(e){}
-$("best").textContent=best;
 
-function stats(){
- $("score").textContent=Math.floor(score);
- $("best").textContent=best;
- $("stage").textContent=stage;
- $("coins").textContent=coins;
-}
-function say(t){$("msg").textContent=t}
+<div id="controls">
+ <button data-key="ArrowLeft">⬅ LEFT</button>
+ <button data-key="ArrowDown">⬇ BRAKE</button>
+ <button data-key="ArrowUp">⬆ BOOST</button>
+ <button data-key="ArrowRight">RIGHT ➡</button>
+ <button id="start">START</button>
+</div>
+<div id="actions">
+ <button id="shock">💥 SHOCKWAVE<br>5 COINS</button>
+ <button id="dash">🔥 DASH<br>10 COINS</button>
+</div>
+<div id="help">
+ Keyboard: ← → Move · ↑ Accelerate · ↓ Brake<br>
+ Collect coins, avoid traffic and survive to reach higher stages!<br>
+ Shockwave pushes nearby cars away. Dash gives you a powerful burst.
+</div>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const $=id=>document.getElementById(id);
+
+let keys={},player,traffic,coinsOnRoad,particles;
+let score=0,coins=0,stage=1,lives=3,distance=0;
+let speed=4,roadOffset=0,spawnTimer=0,coinTimer=0;
+let running=false,gameOver=false,dashTime=0,shockTime=0;
+let last=0;
+
 function reset(){
- score=0;coins=0;stage=1;speed=4;
- traffic=[];items=[];nitro=100;
- car.x=240;running=true;paused=false;over=false;
- $("pause").textContent="Ⅱ PAUSE";
- stats();say("Good luck! Drive safely!");
+ player={x:218,y:570,w:44,h:76};
+ traffic=[];coinsOnRoad=[];particles=[];
+ score=0;coins=0;stage=1;lives=3;distance=0;
+ speed=4;roadOffset=0;spawnTimer=0;coinTimer=0;
+ dashTime=0;shockTime=0;gameOver=false;running=true;
+ updateInfo();
 }
-function start(){
- if(over||!running)reset();
+
+function updateInfo(){
+ $("score").textContent=Math.floor(score);
+ $("coins").textContent=coins;
+ $("stage").textContent=stage;
+ $("lives").textContent=lives;
 }
-function carDraw(x,y,w,h,col){
- ctx.fillStyle="#0008";
- ctx.beginPath();ctx.roundRect(x-w/2+4,y-h/2+6,w,h,10);ctx.fill();
- ctx.fillStyle=col;
- ctx.beginPath();ctx.roundRect(x-w/2,y-h/2,w,h,10);ctx.fill();
- ctx.fillStyle="#bdeeff";
- ctx.beginPath();ctx.roundRect(x-w/2+7,y-h/2+12,w-14,20,5);ctx.fill();
- ctx.fillStyle="#263447";
- ctx.fillRect(x-w/2+7,y+4,w-14,18);
- ctx.fillStyle="#fff3a1";
- ctx.fillRect(x-w/2+5,y-h/2+3,9,5);
- ctx.fillRect(x+w/2-14,y-h/2+3,9,5);
- ctx.fillStyle="#141c29";
- ctx.fillRect(x-w/2-4,y-h/2+16,5,18);
- ctx.fillRect(x+w/2-1,y-h/2+16,5,18);
- ctx.fillRect(x-w/2-4,y+h/2-32,5,18);
- ctx.fillRect(x+w/2-1,y+h/2-32,5,18);
-}
+
 function road(){
- ctx.fillStyle="#246044";ctx.fillRect(0,0,W,H);
- ctx.fillStyle="#343b48";ctx.fillRect(55,0,370,H);
- ctx.fillStyle="#e9e4bd";
- ctx.fillRect(55,0,7,H);ctx.fillRect(419,0,7,H);
- roadOffset=(roadOffset+speed*(nitroOn?1.7:1))%90;
- ctx.fillStyle="#d5d7d9";
- for(let y=-90+roadOffset;y<H;y+=90){
-  ctx.fillRect(177,y,5,48);
-  ctx.fillRect(298,y,5,48);
+ ctx.fillStyle="#287443";ctx.fillRect(0,0,480,720);
+ ctx.fillStyle="#343a42";ctx.fillRect(55,0,370,720);
+ ctx.fillStyle="#f4f0d0";
+ ctx.fillRect(67,0,5,720);ctx.fillRect(408,0,5,720);
+ ctx.fillStyle="#e8d76a";
+ for(let y=-50;y<750;y+=110){
+  let yy=(y+roadOffset)%110;
+  ctx.fillRect(178,yy,7,55);
+  ctx.fillRect(295,yy,7,55);
  }
 }
+
+function drawCar(x,y,color,playerCar=false){
+ ctx.fillStyle="rgba(0,0,0,.3)";
+ ctx.fillRect(x+4,y+7,40,68);
+ ctx.fillStyle=color;
+ ctx.fillRect(x+5,y+7,34,62);
+ ctx.fillStyle="#172331";
+ ctx.fillRect(x+9,y+19,26,18);
+ ctx.fillRect(x+9,y+45,26,13);
+ ctx.fillStyle="#b9e7f5";
+ ctx.fillRect(x+11,y+21,22,13);
+ ctx.fillStyle="#ffe99a";
+ ctx.fillRect(x+7,y+3,9,5);ctx.fillRect(x+28,y+3,9,5);
+ ctx.fillStyle="#171717";
+ ctx.fillRect(x,y+17,5,17);ctx.fillRect(x+39,y+17,5,17);
+ ctx.fillRect(x,y+49,5,17);ctx.fillRect(x+39,y+49,5,17);
+ if(playerCar){
+  ctx.fillStyle="#fff";
+  ctx.fillRect(x+13,y+39,18,3);
+ }
+}
+
+function drawCoin(c){
+ ctx.beginPath();ctx.arc(c.x,c.y,12,0,Math.PI*2);
+ ctx.fillStyle="#ffc928";ctx.fill();
+ ctx.strokeStyle="#fff0a0";ctx.lineWidth=3;ctx.stroke();
+ ctx.fillStyle="#9b6410";ctx.font="bold 15px Arial";
+ ctx.textAlign="center";ctx.fillText("$",c.x,c.y+5);
+}
+
 function spawnTraffic(){
- let lane=lanes[Math.floor(Math.random()*3)];
- traffic.push({x:lane,y:-80,color:["#ff5d6c","#ffc95b","#ad91ff","#65d8a5"][Math.floor(Math.random()*4)]});
+ let lanes=[105,155,215,275,335];
+ let lane=lanes[Math.floor(Math.random()*lanes.length)];
+ traffic.push({x:lane,y:-90,w:44,h:76,color:["#e84b4b","#458de0","#d4a52e","#a45bd1"][Math.floor(Math.random()*4)],v:1+Math.random()*1.5});
 }
+
 function spawnCoin(){
- let lane=lanes[Math.floor(Math.random()*3)];
- items.push({x:lane,y:-25});
+ let lanes=[105,155,215,275,335];
+ coinsOnRoad.push({x:lanes[Math.floor(Math.random()*lanes.length)]+22,y:-25});
 }
-function collide(a,b){
- return Math.abs(a.x-b.x)<39&&Math.abs(a.y-b.y)<68;
+
+function hit(a,b){
+ return a.x<b.x+b.w && a.x+a.w>b.x &&
+        a.y<b.y+b.h && a.y+a.h>b.y;
 }
-function update(dt){
- if(!running||paused||over)return;
- let d=Math.min(dt/16.67,2);
- let boost=nitroOn&&nitro>0;
- if(boost)nitro=Math.max(0,nitro-0.8*d);
- else nitro=Math.min(100,nitro+0.12*d);
- let move=5.5*d*(boost?1.2:1);
- if(keys.left)car.x-=move;
- if(keys.right)car.x+=move;
- car.x=Math.max(91,Math.min(389,car.x));
- speed=4+Math.min(stage*.35,4)+(boost?3:0);
- score+=speed*.08*d;
- stage=1+Math.floor(score/500);
- spawn+=dt;
- coinSpawn+=dt;
- if(spawn>Math.max(430,1050-stage*45)){
-  spawn=0;spawnTraffic();
+
+function burst(x,y,color){
+ for(let i=0;i<18;i++){
+  particles.push({x,y,vx:(Math.random()-.5)*8,vy:(Math.random()-.5)*8,life:30,color});
  }
- if(coinSpawn>1500){
-  coinSpawn=0;spawnCoin();
- }
- for(let t of traffic){
-  t.y+=speed*d;
-  if(collide(car,t)){end();return}
- }
- traffic=traffic.filter(t=>t.y<H+100);
- for(let i of items){
-  i.y+=speed*d;
-  if(Math.abs(i.x-car.x)<34&&Math.abs(i.y-car.y)<48){
-   coins++;score+=50;i.caught=true;say("🪙 Coin collected!");
+}
+
+function shockwave(){
+ if(!running||coins<5)return;
+ coins-=5;shockTime=35;
+ traffic.forEach(t=>{
+  if(Math.abs(t.y-player.y)<260){
+   burst(t.x+22,t.y+35,"#4bdcff");
+   t.y=-200;
+   score+=30;
   }
- }
- items=items.filter(i=>!i.caught&&i.y<H+30);
- if(score>best){
-  best=Math.floor(score);
-  try{localStorage.setItem("nsr-best",best)}catch(e){}
- }
- stats();
+ });
+ updateInfo();
 }
-function end(){
- running=false;over=true;nitroOn=false;
- say("🏁 CRASH! Press START to race again.");
+
+function dash(){
+ if(!running||coins<10)return;
+ coins-=10;dashTime=120;
+ burst(player.x+22,player.y+30,"#ff9d32");
+ updateInfo();
 }
+
+function movePlayer(){
+ let accel=keys.ArrowUp?0.11:0;
+ let brake=keys.ArrowDown?0.13:0;
+ let target=4+stage*.45+accel*18-brake*12;
+ speed+=(target-speed)*.045;
+ speed=Math.max(2.2,Math.min(11,speed));
+ let move=keys.ArrowLeft?-5:keys.ArrowRight?5:0;
+ player.x+=move;
+ player.x=Math.max(76,Math.min(360,player.x));
+}
+
+function update(dt){
+ if(!running)return;
+ let factor=dt/16.67;
+ movePlayer();
+ let actualSpeed=speed+(dashTime>0?5:0);
+ if(dashTime>0)dashTime-=factor;
+ if(shockTime>0)shockTime-=factor;
+
+ distance+=actualSpeed*factor;
+ roadOffset=(roadOffset+actualSpeed*factor)%110;
+ score+=actualSpeed*.08*factor;
+
+ let newStage=Math.floor(distance/1400)+1;
+ if(newStage>stage){
+  stage=newStage;
+  coins+=5;
+  burst(240,150,"#ffe16a");
+ }
+ spawnTimer-=factor;
+ coinTimer-=factor;
+ if(spawnTimer<=0){
+  spawnTraffic();
+  spawnTimer=Math.max(24,75-stage*4);
+ }
+ if(coinTimer<=0){
+  spawnCoin();
+  coinTimer=65;
+ }
+
+ traffic.forEach(t=>{
+  t.y+=(actualSpeed*.65+t.v+stage*.25)*factor;
+  if(dashTime>0 && t.y>player.y-100 && t.y<player.y+100){
+   t.y=800;score+=40;burst(t.x+22,t.y,"#ff9d32");
+  }
+  if(hit({x:player.x,y:player.y,w:44,h:76},{x:t.x,y:t.y,w:44,h:76})){
+   t.y=900;
+   if(dashTime<=0){
+    lives--;burst(player.x+22,player.y+35,"#ff4949");
+    if(lives<=0){running=false;gameOver=true;}
+   }else score+=50;
+  }
+ });
+ traffic=traffic.filter(t=>t.y<800);
+
+ coinsOnRoad.forEach(c=>{
+  c.y+=actualSpeed*factor;
+  if(Math.hypot(c.x-(player.x+22),c.y-(player.y+38))<35){
+   c.y=900;coins++;score+=20;
+   burst(c.x,c.y,"#ffda42");
+  }
+ });
+ coinsOnRoad=coinsOnRoad.filter(c=>c.y<800);
+
+ particles.forEach(p=>{
+  p.x+=p.vx*factor;p.y+=p.vy*factor;p.life-=factor;
+ });
+ particles=particles.filter(p=>p.life>0);
+ updateInfo();
+}
+
 function draw(){
  road();
- for(let t of traffic)carDraw(t.x,t.y,48,82,t.color);
- for(let i of items){
-  ctx.fillStyle="#ffd84e";
-  ctx.beginPath();ctx.arc(i.x,i.y,13,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle="#8c5a00";ctx.font="bold 16px Arial";
-  ctx.textAlign="center";ctx.fillText("$",i.x,i.y+6);
+ coinsOnRoad.forEach(drawCoin);
+ traffic.forEach(t=>drawCar(t.x,t.y,t.color));
+ if(running){
+  if(dashTime>0){
+   ctx.fillStyle="rgba(255,130,30,.16)";
+   ctx.fillRect(0,0,480,720);
+  }
+  if(shockTime>0){
+   ctx.beginPath();ctx.arc(player.x+22,player.y+38,160*(1-shockTime/45),0,Math.PI*2);
+   ctx.strokeStyle="#48dfff";ctx.lineWidth=9;ctx.stroke();
+  }
+  drawCar(player.x,player.y,dashTime>0?"#ff8b24":"#35c9ef",true);
+ }else{
+  ctx.fillStyle="rgba(0,0,0,.72)";ctx.fillRect(0,0,480,720);
+  ctx.textAlign="center";
+  ctx.fillStyle="#ffd54a";ctx.font="bold 36px Arial";
+  ctx.fillText(gameOver?"GAME OVER":"NO STRESS RACING",240,290);
+  ctx.fillStyle="white";ctx.font="20px Arial";
+  ctx.fillText(gameOver?"Final Score: "+Math.floor(score):"Press START to play",240,340);
+  ctx.font="16px Arial";
+  ctx.fillText("Stage "+stage+"  •  Coins "+coins,240,380);
  }
- if(running||!over)carDraw(car.x,car.y,car.w,car.h,color);
- if(nitroOn&&nitro>0&&running){
-  ctx.fillStyle="#66dfff";
-  ctx.beginPath();ctx.moveTo(car.x-12,car.y+40);
-  ctx.lineTo(car.x,car.y+75+Math.random()*15);
-  ctx.lineTo(car.x+12,car.y+40);ctx.fill();
- }
- if(!running||paused){
-  ctx.fillStyle="#08111dbb";ctx.fillRect(55,0,370,H);
-  ctx.textAlign="center";ctx.fillStyle="white";
-  ctx.font="bold 34px Arial";
-  ctx.fillText(over?"RACE OVER":paused?"PAUSED":"READY",240,330);
-  ctx.font="17px Arial";ctx.fillStyle="#b8d6e9";
-  ctx.fillText(over?"Press START to retry":paused?"Press PAUSE to resume":"Press START",240,370);
- }
- ctx.fillStyle="#d9e8f4";ctx.fillRect(15,18,100,9);
- ctx.fillStyle="#40d7ff";ctx.fillRect(15,18,nitro,9);
- ctx.font="11px Arial";ctx.textAlign="left";
- ctx.fillStyle="white";ctx.fillText("NITRO",15,14);
+ particles.forEach(p=>{
+  ctx.globalAlpha=Math.max(0,p.life/30);
+  ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,6,6);
+  ctx.globalAlpha=1;
+ });
 }
-function frame(t){
- let dt=last?Math.min(t-last,40):16.67;last=t;
- update(dt);draw();requestAnimationFrame(frame);
+
+function loop(time){
+ let dt=Math.min(40,time-last||16.67);last=time;
+ update(dt);draw();
+ requestAnimationFrame(loop);
 }
-function setKey(k,v){keys[k]=v}
-$("start").onclick=start;
-$("pause").onclick=()=>{
- if(!running)return;
- paused=!paused;
- $("pause").textContent=paused?"▶ RESUME":"Ⅱ PAUSE";
- say(paused?"Take a break!":"Back to racing!");
-};
-$("car").onchange=()=>color=$("car").value;
-function bindHold(id,k){
- let b=$(id);
- b.addEventListener("pointerdown",e=>{e.preventDefault();setKey(k,true);b.setPointerCapture(e.pointerId)});
- ["pointerup","pointercancel","lostpointercapture"].forEach(ev=>b.addEventListener(ev,()=>setKey(k,false)));
-}
-bindHold("left","left");bindHold("right","right");
-$("nitro").addEventListener("pointerdown",e=>{e.preventDefault();nitroOn=true});
-["pointerup","pointercancel","pointerleave"].forEach(ev=>$("nitro").addEventListener(ev,()=>nitroOn=false));
+
 document.addEventListener("keydown",e=>{
- if(["ArrowLeft","ArrowRight"," "].includes(e.key))e.preventDefault();
- if(e.key==="ArrowLeft"||e.key==="a")keys.left=true;
- if(e.key==="ArrowRight"||e.key==="d")keys.right=true;
- if(e.key===" ")nitroOn=true;
- if(e.key.toLowerCase()==="p")$("pause").click();
+ if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," "].includes(e.key))e.preventDefault();
+ keys[e.key]=true;
+ if(e.repeat)return;
 });
-document.addEventListener("keyup",e=>{
- if(e.key==="ArrowLeft"||e.key==="a")keys.left=false;
- if(e.key==="ArrowRight"||e.key==="d")keys.right=false;
- if(e.key===" ")nitroOn=false;
+document.addEventListener("keyup",e=>keys[e.key]=false);
+window.addEventListener("blur",()=>keys={});
+
+document.querySelectorAll("[data-key]").forEach(btn=>{
+ const key=btn.dataset.key;
+ btn.addEventListener("pointerdown",e=>{e.preventDefault();keys[key]=true;});
+ ["pointerup","pointerleave","pointercancel"].forEach(ev=>
+  btn.addEventListener(ev,()=>keys[key]=false));
 });
-window.addEventListener("blur",()=>{keys={};nitroOn=false});
-let dragging=false;
-c.addEventListener("pointerdown",e=>{dragging=true;movePointer(e)});
-c.addEventListener("pointermove",e=>{if(dragging)movePointer(e)});
-["pointerup","pointercancel","pointerleave"].forEach(ev=>c.addEventListener(ev,()=>dragging=false));
-function movePointer(e){
- let r=c.getBoundingClientRect();
- car.x=Math.max(91,Math.min(389,(e.clientX-r.left)/r.width*W));
-}
-reset();running=false;over=false;say("Press START to begin!");
-requestAnimationFrame(frame);
-})();
+$("start").addEventListener("click",reset);
+$("shock").addEventListener("click",shockwave);
+$("dash").addEventListener("click",dash);
+
+reset();
+running=false;
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
