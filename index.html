@@ -101,23 +101,29 @@ function updateInfo(){
 }
 
 function road(){
+ // Road background
  ctx.fillStyle="#287443";
  ctx.fillRect(0,0,480,720);
 
  ctx.fillStyle="#343a42";
  ctx.fillRect(55,0,370,720);
 
+ // Road borders
  ctx.fillStyle="#f4f0d0";
  ctx.fillRect(67,0,5,720);
  ctx.fillRect(408,0,5,720);
 
- // Stable, continuously repeating lane markings
+ // Continuous scrolling lane markings
  ctx.fillStyle="#f2dc75";
- for(let y=-110;y<830;y+=110){
-  let yy=(y+roadOffset)%720;
-  if(yy<0)yy+=720;
-  ctx.fillRect(190,yy,7,55);
-  ctx.fillRect(283,yy,7,55);
+
+ const spacing=110;
+ const markHeight=55;
+ const offset=roadOffset%spacing;
+
+ for(let y=-spacing;y<720+spacing;y+=spacing){
+   let yy=y+offset;
+   ctx.fillRect(190,yy,7,markHeight);
+   ctx.fillRect(283,yy,7,markHeight);
  }
 }
 
