@@ -22,21 +22,24 @@ button:active{filter:brightness(1.4)}
 #lifeChoice{margin:10px auto;display:flex;align-items:center;justify-content:center;gap:10px}
 select{background:#303e53;padding:10px 16px;font-size:15px}
 #help{font-size:12px;color:#c5ccd6;margin:12px auto 22px;line-height:1.7}
+#languageBar{width:min(96vw,480px);margin:10px auto 4px;display:flex;justify-content:flex-end;align-items:center;gap:7px;font-size:12px;color:#c5ccd6}
+#languageSelect{padding:7px 10px;font-size:12px;max-width:170px}
 </style>
 </head>
 <body>
 
+<div id="languageBar"><label id="languageLabel" for="languageSelect">🌐 Language</label><select id="languageSelect" aria-label="Choose language"></select></div>
 <h1>🏁 NO STRESS RACING</h1>
 
 <div id="info">
- <span>🏆 Score: <b id="score">0</b></span>
- <span>🪙 Coins: <b id="coins">0</b></span>
- <span>🚦 Stage: <b id="stage">1</b></span>
- <span>❤️ Lives: <b id="lives">3</b></span>
+ <span>🏆 <span id="scoreLabel">Score</span>: <b id="score">0</b></span>
+ <span>🪙 <span id="coinsLabel">Coins</span>: <b id="coins">0</b></span>
+ <span>🚦 <span id="stageLabel">Stage</span>: <b id="stage">1</b></span>
+ <span>❤️ <span id="livesLabel">Lives</span>: <b id="lives">3</b></span>
 </div>
 
 <div id="lifeChoice">
- <label for="lifeSelect">❤️ SELECT LIVES</label>
+ <label id="lifeChoiceLabel" for="lifeSelect">❤️ SELECT LIVES</label>
  <select id="lifeSelect">
   <option value="3" selected>3 Lives</option>
   <option value="5">5 Lives</option>
@@ -47,10 +50,10 @@ select{background:#303e53;padding:10px 16px;font-size:15px}
 <canvas id="game" width="480" height="720"></canvas>
 
 <div id="controls">
- <button data-key="ArrowLeft">⬅ LEFT</button>
- <button data-key="ArrowDown">⬇ BRAKE</button>
- <button data-key="ArrowUp">⬆ BOOST</button>
- <button data-key="ArrowRight">RIGHT ➡</button>
+ <button data-key="ArrowLeft" id="leftBtn">⬅ LEFT</button>
+ <button data-key="ArrowDown" id="brakeBtn">⬇ BRAKE</button>
+ <button data-key="ArrowUp" id="boostBtn">⬆ BOOST</button>
+ <button data-key="ArrowRight" id="rightBtn">RIGHT ➡</button>
  <button id="start">START</button>
 </div>
 
@@ -69,6 +72,38 @@ select{background:#303e53;padding:10px 16px;font-size:15px}
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 const $=id=>document.getElementById(id);
+
+// Shared language preference used by all NoStress games.
+const LANGUAGE_KEY='nostressLanguage';
+const LANGUAGES={
+ en:{name:'English',language:'🌐 Language',score:'Score',coins:'Coins',stage:'Stage',lives:'Lives',selectLives:'❤️ SELECT LIVES',left:'⬅ LEFT',brake:'⬇ BRAKE',boost:'⬆ BOOST',right:'RIGHT ➡',start:'START',shock:'💥 SHOCKWAVE<br>5 COINS',dash:'🔥 DASH<br>10 COINS',help:'Keyboard: ← → Move · ↑ Accelerate · ↓ Brake<br>Collect coins, avoid traffic and reach higher stages!<br>Shockwave pushes nearby cars away. Dash destroys cars only on collision.',gameOver:'GAME OVER',finalScore:'Final Score: ',stageCoins:'Stage {stage}  •  Coins {coins}',playAgain:'Press START to play again',title:'SELECT LIVES & PRESS START',lifeOptions:'3  /  5  /  10 Lives'},
+ ko:{name:'한국어',language:'🌐 언어',score:'점수',coins:'코인',stage:'스테이지',lives:'목숨',selectLives:'❤️ 목숨 선택',left:'⬅ 왼쪽',brake:'⬇ 브레이크',boost:'⬆ 가속',right:'오른쪽 ➡',start:'시작',shock:'💥 충격파<br>5 코인',dash:'🔥 대시<br>10 코인',help:'키보드: ← → 이동 · ↑ 가속 · ↓ 브레이크<br>코인을 모으고 차량을 피하면서 더 높은 스테이지에 도전하세요!<br>충격파는 주변 차량을 밀어냅니다. 대시는 차량과 실제로 충돌했을 때만 파괴합니다.',gameOver:'게임 종료',finalScore:'최종 점수: ',stageCoins:'스테이지 {stage}  •  코인 {coins}',playAgain:'다시 하려면 시작을 누르세요',title:'목숨을 선택하고 시작을 누르세요',lifeOptions:'목숨 3 / 5 / 10'},
+ ja:{name:'日本語',language:'🌐 言語',score:'スコア',coins:'コイン',stage:'ステージ',lives:'ライフ',selectLives:'❤️ ライフを選択',left:'⬅ 左',brake:'⬇ ブレーキ',boost:'⬆ 加速',right:'右 ➡',start:'スタート',shock:'💥 衝撃波<br>5コイン',dash:'🔥 ダッシュ<br>10コイン',help:'操作: ← → 移動 · ↑ 加速 · ↓ ブレーキ<br>コインを集め、車を避けて高いステージを目指しましょう！<br>衝撃波は近くの車を押しのけます。ダッシュは車に実際に衝突したときだけ破壊します。',gameOver:'ゲームオーバー',finalScore:'最終スコア: ',stageCoins:'ステージ {stage}  •  コイン {coins}',playAgain:'再プレイするにはスタートを押してください',title:'ライフを選んでスタートを押してください',lifeOptions:'ライフ 3 / 5 / 10'},
+ zh:{name:'简体中文',language:'🌐 语言',score:'分数',coins:'金币',stage:'关卡',lives:'生命',selectLives:'❤️ 选择生命数',left:'⬅ 左移',brake:'⬇ 刹车',boost:'⬆ 加速',right:'右移 ➡',start:'开始',shock:'💥 冲击波<br>5金币',dash:'🔥 冲刺<br>10金币',help:'键盘：← → 移动 · ↑ 加速 · ↓ 刹车<br>收集金币，躲避车辆，挑战更高关卡！<br>冲击波会推开附近车辆。冲刺只会在实际撞击时摧毁车辆。',gameOver:'游戏结束',finalScore:'最终分数：',stageCoins:'关卡 {stage}  •  金币 {coins}',playAgain:'按“开始”再次游戏',title:'选择生命数并按开始',lifeOptions:'生命数 3 / 5 / 10'},
+ es:{name:'Español',language:'🌐 Idioma',score:'Puntuación',coins:'Monedas',stage:'Etapa',lives:'Vidas',selectLives:'❤️ ELEGIR VIDAS',left:'⬅ IZQUIERDA',brake:'⬇ FRENAR',boost:'⬆ ACELERAR',right:'DERECHA ➡',start:'INICIAR',shock:'💥 ONDA DE CHOQUE<br>5 MONEDAS',dash:'🔥 IMPULSO<br>10 MONEDAS',help:'Teclado: ← → Mover · ↑ Acelerar · ↓ Frenar<br>¡Recoge monedas, esquiva el tráfico y alcanza etapas superiores!<br>La onda de choque aleja los coches cercanos. El impulso destruye coches solo al chocar con ellos.',gameOver:'FIN DEL JUEGO',finalScore:'Puntuación final: ',stageCoins:'Etapa {stage}  •  Monedas {coins}',playAgain:'Pulsa INICIAR para volver a jugar',title:'ELIGE VIDAS Y PULSA INICIAR',lifeOptions:'3 / 5 / 10 vidas'},
+ fr:{name:'Français',language:'🌐 Langue',score:'Score',coins:'Pièces',stage:'Niveau',lives:'Vies',selectLives:'❤️ CHOISIR LES VIES',left:'⬅ GAUCHE',brake:'⬇ FREIN',boost:'⬆ ACCÉLÉRER',right:'DROITE ➡',start:'DÉMARRER',shock:'💥 ONDE DE CHOC<br>5 PIÈCES',dash:'🔥 BOOST<br>10 PIÈCES',help:'Clavier : ← → Déplacer · ↑ Accélérer · ↓ Freiner<br>Collectez des pièces, évitez la circulation et atteignez des niveaux supérieurs !<br>L’onde de choc repousse les voitures proches. Le boost détruit les voitures uniquement en cas de collision.',gameOver:'FIN DE PARTIE',finalScore:'Score final : ',stageCoins:'Niveau {stage}  •  Pièces {coins}',playAgain:'Appuyez sur DÉMARRER pour rejouer',title:'CHOISISSEZ LES VIES ET DÉMARREZ',lifeOptions:'3 / 5 / 10 vies'},
+ de:{name:'Deutsch',language:'🌐 Sprache',score:'Punktzahl',coins:'Münzen',stage:'Stufe',lives:'Leben',selectLives:'❤️ LEBEN WÄHLEN',left:'⬅ LINKS',brake:'⬇ BREMSEN',boost:'⬆ BESCHLEUNIGEN',right:'RECHTS ➡',start:'START',shock:'💥 SCHOCKWELLE<br>5 MÜNZEN',dash:'🔥 TURBO<br>10 MÜNZEN',help:'Tastatur: ← → Bewegen · ↑ Beschleunigen · ↓ Bremsen<br>Sammle Münzen, weiche dem Verkehr aus und erreiche höhere Stufen!<br>Die Schockwelle stößt nahe Autos weg. Turbo zerstört Autos nur bei einer Kollision.',gameOver:'SPIEL VORBEI',finalScore:'Endpunktzahl: ',stageCoins:'Stufe {stage}  •  Münzen {coins}',playAgain:'Drücke START, um erneut zu spielen',title:'LEBEN WÄHLEN UND START DRÜCKEN',lifeOptions:'3 / 5 / 10 Leben'},
+ pt:{name:'Português',language:'🌐 Idioma',score:'Pontuação',coins:'Moedas',stage:'Fase',lives:'Vidas',selectLives:'❤️ ESCOLHER VIDAS',left:'⬅ ESQUERDA',brake:'⬇ FREAR',boost:'⬆ ACELERAR',right:'DIREITA ➡',start:'INICIAR',shock:'💥 ONDA DE CHOQUE<br>5 MOEDAS',dash:'🔥 IMPULSO<br>10 MOEDAS',help:'Teclado: ← → Mover · ↑ Acelerar · ↓ Frear<br>Colete moedas, desvie do trânsito e alcance fases mais altas!<br>A onda de choque afasta os carros próximos. O impulso destrói carros somente ao colidir.',gameOver:'FIM DE JOGO',finalScore:'Pontuação final: ',stageCoins:'Fase {stage}  •  Moedas {coins}',playAgain:'Pressione INICIAR para jogar novamente',title:'ESCOLHA AS VIDAS E PRESSIONE INICIAR',lifeOptions:'3 / 5 / 10 vidas'},
+ it:{name:'Italiano',language:'🌐 Lingua',score:'Punteggio',coins:'Monete',stage:'Livello',lives:'Vite',selectLives:'❤️ SCEGLI LE VITE',left:'⬅ SINISTRA',brake:'⬇ FRENA',boost:'⬆ ACCELERA',right:'DESTRA ➡',start:'INIZIA',shock:'💥 ONDA D’URTO<br>5 MONETE',dash:'🔥 SCATTO<br>10 MONETE',help:'Tastiera: ← → Muovi · ↑ Accelera · ↓ Frena<br>Raccogli monete, evita il traffico e raggiungi livelli più alti!<br>L’onda d’urto spinge via le auto vicine. Lo scatto distrugge le auto solo in caso di collisione.',gameOver:'FINE PARTITA',finalScore:'Punteggio finale: ',stageCoins:'Livello {stage}  •  Monete {coins}',playAgain:'Premi INIZIA per giocare ancora',title:'SCEGLI LE VITE E PREMI INIZIA',lifeOptions:'3 / 5 / 10 vite'},
+ ru:{name:'Русский',language:'🌐 Язык',score:'Счёт',coins:'Монеты',stage:'Этап',lives:'Жизни',selectLives:'❤️ ВЫБЕРИТЕ ЖИЗНИ',left:'⬅ ВЛЕВО',brake:'⬇ ТОРМОЗ',boost:'⬆ УСКОРЕНИЕ',right:'ВПРАВО ➡',start:'СТАРТ',shock:'💥 УДАРНАЯ ВОЛНА<br>5 МОНЕТ',dash:'🔥 РЫВОК<br>10 МОНЕТ',help:'Клавиатура: ← → движение · ↑ ускорение · ↓ тормоз<br>Собирайте монеты, избегайте машин и проходите новые этапы!<br>Ударная волна отталкивает ближайшие машины. Рывок уничтожает машины только при столкновении.',gameOver:'ИГРА ОКОНЧЕНА',finalScore:'Итоговый счёт: ',stageCoins:'Этап {stage}  •  Монеты {coins}',playAgain:'Нажмите СТАРТ, чтобы сыграть снова',title:'ВЫБЕРИТЕ ЖИЗНИ И НАЖМИТЕ СТАРТ',lifeOptions:'3 / 5 / 10 жизней'}
+};
+function detectLanguage(){const list=(navigator.languages&&navigator.languages.length?navigator.languages:[navigator.language||'en']).map(x=>String(x).toLowerCase());for(const x of list){if(x.startsWith('zh'))return 'zh';for(const c of ['en','ko','ja','es','fr','de','pt','it','ru'])if(x.startsWith(c))return c;}return 'en';}
+let currentLanguage='en';
+function tr(key){return (LANGUAGES[currentLanguage]||LANGUAGES.en)[key]||LANGUAGES.en[key]||key;}
+function applyLanguage(code,save=true){
+ currentLanguage=LANGUAGES[code]?code:'en';document.documentElement.lang=currentLanguage;
+ document.title='No Stress Racing';
+ $('languageLabel').textContent=tr('language');$('scoreLabel').textContent=tr('score');$('coinsLabel').textContent=tr('coins');$('stageLabel').textContent=tr('stage');$('livesLabel').textContent=tr('lives');$('lifeChoiceLabel').textContent=tr('selectLives');
+ $('leftBtn').textContent=tr('left');$('brakeBtn').textContent=tr('brake');$('boostBtn').textContent=tr('boost');$('rightBtn').textContent=tr('right');$('start').textContent=tr('start');$('shock').innerHTML=tr('shock');$('dash').innerHTML=tr('dash');$('help').innerHTML=tr('help');
+ const sel=$('languageSelect');if(sel.value!==currentLanguage)sel.value=currentLanguage;
+ [...$('lifeSelect').options].forEach((o,i)=>{const n=[3,5,10][i];o.textContent=currentLanguage==='en'?`${n} Lives`:currentLanguage==='ko'?`목숨 ${n}개`:currentLanguage==='ja'?`${n} ライフ`:currentLanguage==='zh'?`${n} 条生命`:currentLanguage==='es'?`${n} vidas`:currentLanguage==='fr'?`${n} vies`:currentLanguage==='de'?`${n} Leben`:currentLanguage==='pt'?`${n} vidas`:currentLanguage==='it'?`${n} vite`:`${n} жизней`;});
+ if(save){try{localStorage.setItem(LANGUAGE_KEY,currentLanguage)}catch(e){}}
+}
+Object.keys(LANGUAGES).forEach(code=>{const o=document.createElement('option');o.value=code;o.textContent=LANGUAGES[code].name;$('languageSelect').appendChild(o)});
+$('languageSelect').addEventListener('change',()=>applyLanguage($('languageSelect').value,true));
+let savedLanguage='';try{savedLanguage=localStorage.getItem(LANGUAGE_KEY)||''}catch(e){}
+applyLanguage(LANGUAGES[savedLanguage]?savedLanguage:detectLanguage(),false);
+
 
 let keys={};
 let player,traffic,coinsOnRoad,particles;
@@ -413,20 +448,21 @@ function draw(){
   ctx.font="bold 36px Arial";
 
   if(gameOver){
-   ctx.fillText("GAME OVER",240,290);
+   ctx.fillText(tr("gameOver"),240,290);
    ctx.fillStyle="white";
    ctx.font="20px Arial";
-   ctx.fillText("Final Score: "+Math.floor(score),240,340);
-   ctx.fillText("Stage "+stage+"  •  Coins "+coins,240,380);
+   ctx.fillText(tr("finalScore")+Math.floor(score),240,340);
+   ctx.fillText(tr("stageCoins").replace("{stage}",stage).replace("{coins}",coins),240,380);
    ctx.font="16px Arial";
-   ctx.fillText("Press START to play again",240,430);
+   ctx.font="16px Arial";
+    ctx.fillText(tr("playAgain"),240,430);
   }else{
    ctx.fillText("NO STRESS RACING",240,290);
    ctx.fillStyle="white";
    ctx.font="20px Arial";
-   ctx.fillText("SELECT LIVES & PRESS START",240,350);
+   ctx.fillText(tr("title"),240,350);
    ctx.font="18px Arial";
-   ctx.fillText("3  /  5  /  10 Lives",240,390);
+   ctx.fillText(tr("lifeOptions"),240,390);
   }
  }
 
